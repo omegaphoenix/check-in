@@ -15,8 +15,7 @@ from lib.general import CheckInError, NotificationLevel
 
 
 @pytest.fixture
-def test_flight(mocker: MockerFixture) -> Flight:
-    mocker.patch("multiprocessing.Process.start")
+def test_flight() -> Flight:
     account = Account()
 
     # Needs to be mocked so it isn't run when Flight is instantiated
@@ -75,6 +74,16 @@ def test_convert_to_utc_converts_local_time_to_utc(test_flight: Flight) -> None:
     utc_flight_time = test_flight._convert_to_utc("1999-12-31 23:59", tz)
 
     assert utc_flight_time == datetime(1999, 12, 31, 18, 29)
+
+
+def test_schedule_check_in_starts_a_process(mocker: MockerFixture, test_flight: Flight) -> None:
+    mock_process = mocker.patch("lib.flight.Process")
+    mock_process.start = mock.Mock()
+
+    test_flight.schedule_check_in()
+
+    mock_process.assert_called_once_with(target=test_flight._set_check_in)
+    mock_process.return_value.start.assert_called_once()
 
 
 def test_set_check_in_correctly_sets_up_check_in_process(

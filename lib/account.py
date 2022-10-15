@@ -67,14 +67,28 @@ class Account:
             return
 
         # If multiple flights are under the same confirmation number, it will schedule all checkins one by one
-        flight_info = response["viewReservationViewPage"]["bounds"]
+        reservation_info = response["viewReservationViewPage"]["bounds"]
 
-        for flight in flight_info:
-            # if not flight in self.flights: // TODO: This doesn't work. Add a function to make sure it only schedules if it isn't already added
-            if flight["departureStatus"] != "DEPARTED":
-                flight = Flight(self, confirmation_number, flight)
+        for flight_info in reservation_info:
+            flight = Flight(self, confirmation_number, flight_info)
+
+            if flight_info["departureStatus"] != "DEPARTED" and not self._flight_is_scheduled(
+                flight
+            ):
+                flight.schedule_check_in()
                 self.flights.append(flight)
                 # TODO: Remove flight from list after it has checked in. Have to do in main process (memory isn't shared)
+
+    def _flight_is_scheduled(self, flight: Flight) -> bool:
+        for scheduled_flight in self.flights:
+            if (
+                flight.departure_time == scheduled_flight.departure_time
+                and flight.departure_airport == scheduled_flight.departure_airport
+                and flight.destination_airport == scheduled_flight.destination_airport
+            ):
+                return True
+
+        return False
 
     # Sends new flight notifications to the user. It detects new flights by getting every scheduled flight after
     # the previous length of the flights list.

@@ -1,9 +1,13 @@
+from datetime import datetime
+from typing import Any, Dict
 from unittest import mock
 
 import apprise
+import pytest
 from pytest_mock import MockerFixture
 
 from lib.account import Account
+from lib.flight import Flight
 from lib.general import CheckInError, NotificationLevel
 from lib.webdriver import WebDriver
 
@@ -69,6 +73,7 @@ def test_get_reservation_info_sends_error_notification_when_reservation_retrieva
 def test_get_reservation_info_does_not_schedule_departed_flights(mocker: MockerFixture) -> None:
     flight_info = {"viewReservationViewPage": {"bounds": [{"departureStatus": "DEPARTED"}]}}
     mocker.patch("lib.account.make_request", return_value=flight_info)
+    mocker.patch("lib.account.Flight")
 
     test_account = Account()
     test_account._get_reservation_info("flight1")
@@ -85,13 +90,79 @@ def test_get_reservation_info_schedules_all_flights_under_one_reservation(
         }
     }
     mocker.patch("lib.account.make_request", return_value=flight_info)
-    mock_flight = mocker.patch("lib.account.Flight")
+    mocker.patch.object(Account, "_flight_is_scheduled", return_value=False)
+    mocker.patch("lib.account.Flight")
 
     test_account = Account()
     test_account._get_reservation_info("flight1")
 
     assert len(test_account.flights) == 2
-    assert mock_flight.call_count == 2
+
+
+def test_get_reservation_info_does_not_schedule_flights_already_scheduled(
+    mocker: MockerFixture,
+) -> None:
+    flight_info = {"viewReservationViewPage": {"bounds": [{"departureStatus": "WAITING"}]}}
+    mocker.patch("lib.account.make_request", return_value=flight_info)
+    mocker.patch.object(Account, "_flight_is_scheduled", return_value=True)
+    mocker.patch.object(Flight, "_get_flight_info")
+
+    test_account = Account()
+    test_account._get_reservation_info("flight1")
+
+    assert len(test_account.flights) == 0
+
+
+def test_flight_is_scheduled_returns_true_if_flight_is_already_scheduled(
+    mocker: MockerFixture,
+) -> None:
+    mocker.patch.object(Flight, "_get_flight_info")
+    test_account = Account()
+
+    test_flight = Flight(test_account, "", {})
+    test_flight.departure_time = datetime(1999, 12, 31)
+    test_flight.departure_airport = "test_departure"
+    test_flight.destination_airport = "test_destination"
+    test_account.flights.append(test_flight)
+
+    assert test_account._flight_is_scheduled(test_flight) is True
+
+
+@pytest.mark.parametrize(
+    ["flight_info", "flight_time"],
+    [
+        (
+            {"departureAirport": {"name": None}, "arrivalAirport": {"name": None}},
+            datetime(1999, 12, 30),
+        ),
+        (
+            {"departureAirport": {"name": "test"}, "arrivalAirport": {"name": None}},
+            datetime(1999, 12, 31),
+        ),
+        (
+            {"departureAirport": {"name": None}, "arrivalAirport": {"name": "test"}},
+            datetime(1999, 12, 31),
+        ),
+    ],
+)
+def test_flight_is_scheduled_returns_false_if_flight_is_not_scheduled(
+    mocker: MockerFixture,
+    flight_info: Dict[str, Any],
+    flight_time: datetime,
+) -> None:
+    mocker.patch.object(Flight, "_get_flight_time")
+    test_account = Account()
+
+    test_flight = Flight(
+        test_account, "", {"departureAirport": {"name": None}, "arrivalAirport": {"name": None}}
+    )
+    test_flight.departure_time = datetime(1999, 12, 31)
+    test_account.flights.append(test_flight)
+
+    new_flight = Flight(test_account, "", flight_info)
+    new_flight.departure_time = flight_time
+
+    assert test_account._flight_is_scheduled(new_flight) is False
 
 
 def test_send_new_flight_notifications_sends_no_notification_if_no_new_flights_are_scheduled(

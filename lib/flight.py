@@ -28,9 +28,6 @@ class Flight:
         self.destination_airport: str = None
         self._get_flight_info(flight)
 
-        process = Process(target=self._set_check_in)
-        process.start()
-
     def _get_flight_info(self, flight: Dict[str, Any]) -> None:
         self.departure_airport = flight["departureAirport"]["name"]
         self.destination_airport = flight["arrivalAirport"]["name"]
@@ -60,6 +57,10 @@ class Flight:
         utc_time = flight_time.astimezone(pytz.utc).replace(tzinfo=None)
 
         return utc_time
+
+    def schedule_check_in(self) -> None:
+        process = Process(target=self._set_check_in)
+        process.start()
 
     def _set_check_in(self) -> None:
         # Starts to check in five seconds early in case the Southwest server is ahead of your server
