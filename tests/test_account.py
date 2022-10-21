@@ -224,3 +224,27 @@ def test_send_notification_sends_notifications_with_the_correct_content(
     test_account.send_notification("test notification", 1)
 
     assert mock_apprise_notify.call_args[1]["body"] == "test notification"
+
+
+@pytest.mark.parametrize(
+    ["flight_time", "expected_len"],
+    [
+        (datetime(2000, 1, 1), 1),
+        (datetime(1999, 12, 30), 0),
+    ],
+)
+def test_remove_departed_flights_removes_only_departed_flights(
+    mocker: MockerFixture, flight_time: datetime, expected_len: int
+) -> None:
+    mock_datetime = mocker.patch("lib.account.datetime")
+    mock_datetime.utcnow.return_value = datetime(1999, 12, 31)
+    mocker.patch.object(Flight, "_get_flight_info")
+
+    test_account = Account()
+    test_flight = Flight(test_account, "", {})
+    test_flight.departure_time = flight_time
+    test_account.flights.append(test_flight)
+
+    test_account.remove_departed_flights()
+
+    assert len(test_account.flights) == expected_len

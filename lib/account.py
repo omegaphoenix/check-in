@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
 import apprise
@@ -77,7 +78,6 @@ class Account:
             ):
                 flight.schedule_check_in()
                 self.flights.append(flight)
-                # TODO: Remove flight from list after it has checked in. Have to do in main process (memory isn't shared)
 
     def _flight_is_scheduled(self, flight: Flight) -> bool:
         for scheduled_flight in self.flights:
@@ -90,9 +90,11 @@ class Account:
 
         return False
 
-    # Sends new flight notifications to the user. It detects new flights by getting every scheduled flight after
-    # the previous length of the flights list.
     def _send_new_flight_notifications(self, prev_flight_len: int) -> None:
+        """
+        Send new flight notifications to the user. It detects new flights by getting every scheduled flight after
+        the previous length of the flights list.
+        """
         if len(self.flights) == prev_flight_len:
             # Don't send any notifications if no new flights have been scheduled
             return
@@ -117,3 +119,17 @@ class Account:
 
         apobj = apprise.Apprise(self.config.notification_urls)
         apobj.notify(title=title, body=body, body_format=apprise.NotifyFormat.TEXT)
+
+    def remove_departed_flights(self) -> None:
+        """
+        Remove all flights that have already departed by checking that their departure time is in the past.
+        Since flights use their own process, modifying the flight object within that process won't
+        change the flight in the process running the account.
+        """
+        current_time = datetime.utcnow()
+
+        # Iterate through a copy of the list (removing an item from the original list
+        # causes the loop to skip elements)
+        for flight in self.flights[:]:
+            if flight.departure_time < current_time:
+                self.flights.remove(flight)
