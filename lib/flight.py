@@ -63,7 +63,7 @@ class Flight:
 
     def _set_check_in(self) -> None:
         # Starts to check in five seconds early in case the Southwest server is ahead of your server
-        checkin_time = self.departure_time - timedelta(days=1, seconds=5)
+        checkin_time = self.departure_time - timedelta(days=1, seconds=1)
         self._wait_for_check_in(checkin_time)
         self._check_in()
 
