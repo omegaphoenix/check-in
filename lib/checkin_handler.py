@@ -21,7 +21,7 @@ CHECKIN_URL = "mobile-air-operations/v1/mobile-air-operations/page/check-in/"
 MANUAL_CHECKIN_URL = "https://mobile.southwest.com/check-in"
 
 # Should only be relevant for same day flights
-MAX_CHECK_IN_ATTEMPTS = 10
+MAX_CHECK_IN_ATTEMPTS = 1000
 
 logger = get_logger(__name__)
 
@@ -72,7 +72,7 @@ class CheckInHandler:
 
     def _set_check_in(self) -> None:
         # Starts to check in five seconds early in case the Southwest server is ahead of your server
-        checkin_time = self.flight.departure_time - timedelta(days=1, seconds=5)
+        checkin_time = self.flight.departure_time - timedelta(days=1, seconds=1)
 
         try:
             self._wait_for_check_in(checkin_time)
@@ -157,6 +157,7 @@ class CheckInHandler:
 
         attempts = 0
         while attempts < MAX_CHECK_IN_ATTEMPTS:
+            print(attempts)
             attempts += 1
 
             reservation = self._check_in_to_flight()
@@ -166,9 +167,9 @@ class CheckInHandler:
                 return reservation
 
             logger.debug(
-                "Same-day flight has not been checked in yet. Waiting 1 second and trying again"
+                "Same-day flight has not been checked in yet. Waiting 0.2 seconds and trying again"
             )
-            time.sleep(1)
+            time.sleep(0.2)
 
         logger.debug("Same-day flight failed to check in after %d attempts", MAX_CHECK_IN_ATTEMPTS)
         raise RequestError("Too many attempts during check-in")
