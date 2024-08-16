@@ -1,4 +1,4 @@
-FROM python:3.12-alpine
+FROM python:3.12-rc-alpine
 
 WORKDIR /app
 
@@ -19,4 +19,4 @@ RUN cp /usr/bin/chromedriver /usr/local/lib/python3.12/site-packages/seleniumbas
 
 COPY . .
 
-ENTRYPOINT ["python3", "-u", "southwest.py"]
+ENTRYPOINT ["python3", "-u", "southwest.py", "-v"]
